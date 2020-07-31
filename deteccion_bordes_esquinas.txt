@@ -1,0 +1,86 @@
+package deteccion_bordes_esquinas;
+
+import org.opencv.core.Core; 
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;  
+import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.highgui.HighGui;
+import org.opencv.core.Scalar;
+import org.opencv.core.Size;
+import org.opencv.imgproc.Imgproc;
+import org.opencv.core.Point;
+
+public class Deteccion_Bordes_Esquinas {
+   public static void main(String args[]) { 
+      //Cargando la libreria OpenCV core     
+      System.loadLibrary( Core.NATIVE_LIBRARY_NAME );    
+      //Clase Imagecodecs 
+      Imgcodecs imageCodecs = new Imgcodecs(); 
+      //Leyendo la imagen
+      String file ="D:/Test/Pescador.jpg"; 
+      Mat Imagen_original = imageCodecs.imread(file); 
+      //Mostrando la imagen
+      HighGui.imshow("Imagen original", Imagen_original);
+      
+      //Detección de esquinas
+      Mat fuente = imageCodecs.imread(file,0);
+      Mat destino = new Mat();
+      Mat dstNorm = new Mat();
+      int threshold = 150;
+      Mat dstNormScaled = new Mat();
+      destino = Mat.zeros(fuente.size(), CvType.CV_32F);
+      int blockSize = 2;
+      int apertureSize = 3;
+      double k = 0.04;
+      Imgproc.cornerHarris(fuente, destino, blockSize, apertureSize, k);
+      Core.normalize(destino, dstNorm, 0, 255, Core.NORM_MINMAX);
+      Core.convertScaleAbs(dstNorm, dstNormScaled);
+      float[] dstNormData = new float[(int) (dstNorm.total() * dstNorm.channels())];
+      dstNorm.get(0, 0, dstNormData);
+      Mat dstNormScaled2 = dstNormScaled.clone();
+      //HighGui.imshow("T1", dstNormScaled2);
+      for (int i = 0; i < dstNorm.rows(); i++) {
+          for (int j = 0; j < dstNorm.cols(); j++) {
+              if ((int) dstNormData[i * dstNorm.cols() + j] > threshold) {
+                  Imgproc.circle(dstNormScaled, new Point(j, i), 5, new Scalar(0), 2, 8, 0);
+              }
+          }
+      }
+      HighGui.imshow("Esquinas", dstNormScaled);     
+      
+      //Detección de lineas
+      Mat destino2 = new Mat(), cdst = new Mat(), cdstP;
+      Mat fuente2 = imageCodecs.imread(file,0); 
+      Imgproc.Canny(fuente2, destino2, 50, 200, 3, false);
+      HighGui.imshow("Bordes sobre imagen", destino2);
+      Imgproc.cvtColor(destino2, cdst, Imgproc.COLOR_GRAY2BGR);
+      cdstP = cdst.clone();
+      // Standard Hough Line
+      Mat lines = new Mat(); 
+      Imgproc.HoughLines(destino2, lines, 1, Math.PI/180, 150);
+      // Draw the lines
+      for (int x = 0; x < lines.rows(); x++) {
+          double rho = lines.get(x, 0)[0],
+                  theta = lines.get(x, 0)[1];
+          double a = Math.cos(theta), b = Math.sin(theta);
+          double x0 = a*rho, y0 = b*rho;
+          Point pt1 = new Point(Math.round(x0 + 1000*(-b)), Math.round(y0 + 1000*(a)));
+          Point pt2 = new Point(Math.round(x0 - 1000*(-b)), Math.round(y0 - 1000*(a)));
+          Imgproc.line(cdst, pt1, pt2, new Scalar(0, 0, 255), 3, Imgproc.LINE_AA, 0);
+      }
+       // Probabilistic Line Transform
+        Mat linesP = new Mat(); // will hold the results of the detection
+        Imgproc.HoughLinesP(destino2, linesP, 1, Math.PI/180, 50, 50, 10); // runs the actual detection
+        // Draw the lines
+        for (int x = 0; x < linesP.rows(); x++) {
+            double[] l = linesP.get(x, 0);
+            Imgproc.line(cdstP, new Point(l[0], l[1]), new Point(l[2], l[3]), new Scalar(0, 0, 255), 3, Imgproc.LINE_AA, 0);
+        }
+      
+      HighGui.imshow("Lineas", cdst);
+      HighGui.imshow("Lineas Probabilisticas", cdstP);
+      HighGui.waitKey();
+      
+      
+   }
+}
